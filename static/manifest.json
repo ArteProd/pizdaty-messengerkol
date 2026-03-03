@@ -1,0 +1,18 @@
+{
+  "name": "Коляскаgram",
+  "short_name": "Коляска",
+  "description": "Пиздатый мессенджер",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#764ba2",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
