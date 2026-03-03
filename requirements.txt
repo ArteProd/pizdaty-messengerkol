@@ -9,4 +9,8 @@ jinja2==3.1.2
 aiofiles==23.2.1
 python-dotenv==1.0.0
 alembic==1.12.1
-psycopg2-binary==2.9.9  # или aiosqlite для разработки
+psycopg2-binary==2.9.9
+PyJWT==2.8.0
+cryptography==46.0.5
+pydantic[email]
+aiosqlite
