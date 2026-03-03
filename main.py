@@ -96,6 +96,8 @@ async def root():
         <meta name="theme-color" content="#764ba2">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <link rel="manifest" href="/static/manifest.json">
+        <meta name="theme-color" content="#764ba2">
         <style>
             /* ===== TELEGRAM-STYLE MOBILE ===== */
             :root {
@@ -2136,4 +2138,5 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
         log_level="info"
+
     )
