@@ -146,7 +146,7 @@ async def register(request: Request, db: AsyncSession = Depends(database.get_db)
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        from main1 import ensure_saved_chat
+        from main import ensure_saved_chat
         await ensure_saved_chat(user.id, db)
         
         # Токены
