@@ -1953,8 +1953,9 @@ async def root():
                         if (data.type === 'new_message') {
                             if (data.message.chat_id === currentChatId) {
                                 addMessageToChat(data.message);
+                                // Перерисовываем для дат
+                                renderMessages();
                                 markChatAsRead(currentChatId);
-                                // Если читаем сразу - бейджик не нужен
                             } else {
                                 // Для других чатов - увеличиваем счётчик
                                 unreadChats[data.message.chat_id] = (unreadChats[data.message.chat_id] || 0) + 1;
@@ -2463,49 +2464,8 @@ async def root():
                 if (document.querySelector(`[data-id="${message.uuid}"]`)) return;
                 
                 const isSent = message.sender_id === currentUser?.id;
-                const msgDate = new Date(new Date(message.timestamp).getTime() + 3*60*60*1000).toDateString();
                 
-                // ========== ПРОСТАЯ ЛОГИКА ДАТЫ ==========
-                // Ищем последний элемент в контейнере (может быть сообщение или разделитель)
-                const lastChild = container.lastChild;
-                
-                // Проверяем, есть ли уже разделитель с такой же датой в конце
-                let lastDateSeparator = null;
-                for (let i = container.children.length - 1; i >= 0; i--) {
-                    const child = container.children[i];
-                    if (child.classList.contains('date-separator')) {
-                        lastDateSeparator = child;
-                        break;
-                    }
-                }
-                
-                // Если последний разделитель уже имеет текст "Сегодня" (или нужную дату)
-                if (lastDateSeparator) {
-                    const separatorText = lastDateSeparator.querySelector('span')?.textContent;
-                    const todayText = formatDateHeader(message.timestamp);
-                    
-                    // Если даты совпадают - НЕ добавляем новый разделитель
-                    if (separatorText === todayText) {
-                        // Ничего не делаем
-                    } else {
-                        // Дата разная - добавляем новый разделитель
-                        const dateHeader = formatDateHeader(message.timestamp);
-                        const dateDiv = document.createElement('div');
-                        dateDiv.className = 'date-separator';
-                        dateDiv.innerHTML = `<span>${dateHeader}</span>`;
-                        container.appendChild(dateDiv);
-                    }
-                } else {
-                    // Нет разделителей - добавляем
-                    const dateHeader = formatDateHeader(message.timestamp);
-                    const dateDiv = document.createElement('div');
-                    dateDiv.className = 'date-separator';
-                    dateDiv.innerHTML = `<span>${dateHeader}</span>`;
-                    container.appendChild(dateDiv);
-                }
-                // ========================================
-
-                // Добавляем в массив ПОСЛЕ проверки даты
+                // Добавляем в массив
                 if (!message.uuid?.startsWith('temp_')) {
                     messages.push(message);
                 }
@@ -2518,7 +2478,7 @@ async def root():
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
-                    .replace(/\\n/g, '<br>');
+                    .replace(/\n/g, '<br>');
                 
                 let time = '';
                 if (message.status === 'sending') time = '⏳';
@@ -2526,21 +2486,15 @@ async def root():
                 else {
                     const d = new Date(new Date(message.timestamp).getTime() + 3*60*60*1000);
                     const timeStr = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
-                    // Галочки: 1 - отправлено, 2 - прочитано
-                    // Для полученных сообщений - всегда 2 галочки (они прочитаны при получении)
-                    // Для отправленных - зависит от is_read
                     const isSentMessage = message.sender_id === currentUser?.id;
-                    // Галочки только для моих отправленных сообщений
                     const checkmarks = isSentMessage ? (message.is_read ? '✓✓' : '✓') : '';
                     time = isSentMessage ? (timeStr + ' ' + checkmarks) : timeStr;
                 }
                 
-                // ЖЁСТКО удаляем заглушку, если она есть
+                // Удаляем заглушку если есть
                 const emptyState = container.querySelector('.empty-state');
-                if (emptyState) {
-                    emptyState.remove();
-                }
-
+                if (emptyState) emptyState.remove();
+                
                 messageDiv.innerHTML = `<div>${content}</div><div class="message-info">${time}</div>`;
                 container.appendChild(messageDiv);
                 
@@ -2704,6 +2658,10 @@ async def root():
                         
                         // Добавляем реальное
                         addMessageToChat(realMessage);
+                        
+                        // ВАЖНО: перерисовываем для правильных дат
+                        renderMessages();
+                        
                         updateChatInList(currentChatId, realMessage);
                     }
                 } catch (e) {
