@@ -2358,6 +2358,7 @@ async def root():
                     // Загружаем статус пользователя (для обычных чатов)
                     if (otherUser) {
                         await loadUserStatus(otherUser.id);
+                        startStatusInterval(otherUser.id);
                     }
                     
                     // ГРУЗИМ СООБЩЕНИЯ
@@ -3557,6 +3558,26 @@ if (updatedUser.avatar) {
                 // Время уже есть, заменяем только галочки
                 const timeText = timeContainer.textContent.replace(/[✓✓✓]$/, '').trim();
                 timeContainer.innerHTML = timeText + checkmarksHtml;
+            }
+
+            let statusInterval = null;
+
+            function startStatusInterval(userId) {
+                if (statusInterval) clearInterval(statusInterval);
+                
+                // Обновляем статус каждые 30 секунд
+                statusInterval = setInterval(() => {
+                    if (currentChatId && userId) {
+                        updateChatHeaderStatus(userId);
+                    }
+                }, 1000);
+            }
+
+            function stopStatusInterval() {
+                if (statusInterval) {
+                    clearInterval(statusInterval);
+                    statusInterval = null;
+                }
             }
 
             function updateHeaderStatus(user) {
