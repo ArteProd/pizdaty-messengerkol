@@ -2115,9 +2115,9 @@ async def root():
                 const timeContainer = chatItem.querySelector('.chat-item-time');
                 if (!timeContainer) return;
                 
-                // Получаем время без галочек
+                // Получаем время без галочек (удаляем все существующие галочки)
                 let timeText = timeContainer.textContent || '';
-                timeText = timeText.replace(/[✓✓✓]$/, '').trim();
+                timeText = timeText.replace(/[✓✓✓]/g, '').trim();
                 
                 // Если это текущий чат, можем взять последнее сообщение из messages
                 if (chatId === currentChatId && messages.length > 0) {
@@ -2130,7 +2130,6 @@ async def root():
                 }
                 
                 // Для других чатов - просто обновим галочку на прочитанную
-                // (предполагаем что последнее сообщение от текущего пользователя)
                 const checkmarksHtml = '<span class="chat-item-checkmarks read">✓✓</span>';
                 timeContainer.innerHTML = timeText + checkmarksHtml;
             }
