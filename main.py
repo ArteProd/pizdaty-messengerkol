@@ -1460,15 +1460,13 @@ async def root():
                     messages.forEach((msg, index) => {
                         const isSent = msg.sender_id === currentUser?.id;
                         
-                        // Проверяем, нужно ли добавить разделитель даты
+                        // ДАТА - добавляем только если это первое сообщение или дата изменилась
                         const msgDate = new Date(new Date(msg.timestamp).getTime() + 3*60*60*1000).toDateString();
                         
-                        // Показываем дату если:
-                        // 1. Это первое сообщение
-                        // 2. Или дата отличается от предыдущего сообщения
-                        if (index === 0 || msgDate !== lastDate && !existingDateSeparator) {
+                        // Проверяем, нужно ли добавить разделитель даты
+                        if (index === 0 || msgDate !== lastDate) {
                             const dateHeader = formatDateHeader(msg.timestamp);
-                            html += `<div class="date-separator"><span>${dateHeader}</span></div>`;
+                            html += `<div class="date-separator" data-date="${msgDate}"><span>${dateHeader}</span></div>`;
                             lastDate = msgDate;
                         }
                         
@@ -1637,46 +1635,65 @@ async def root():
                 }
             }
 
-            // ========== ЗАГРУЗКА СТАРЫХ ==========
             async function loadMoreMessages() {
-                console.log('loadMoreMessages вызвана, currentPage:', currentPage, 'hasMoreMessages:', hasMoreMessages);
-                
-                if (loadingMessages || !hasMoreMessages || !currentChatId) {
-                    console.log('loadMoreMessages пропущена: loadingMessages=', loadingMessages, 'hasMoreMessages=', hasMoreMessages, 'currentChatId=', currentChatId);
-                    return;
-                }
+                if (loadingMessages || !hasMoreMessages || !currentChatId) return;
                 
                 const container = document.getElementById('messagesContainer');
                 
-                // Сохраняем позицию и высоту ДО загрузки
+                // Сохраняем позицию и первое видимое сообщение
                 const scrollTop = container.scrollTop;
-                const scrollHeight = container.scrollHeight;
+                const firstVisibleElement = getFirstVisibleMessage(container);
+                let firstVisibleMsgId = firstVisibleElement ? firstVisibleElement.getAttribute('data-id') : null;
                 
                 currentPage++;
-                console.log('Загружаю страницу', currentPage, 'для чата', currentChatId);
-                
                 const oldMessages = await loadMessages(currentChatId, currentPage);
-                
-                console.log('Получено старых сообщений:', oldMessages.length);
                 
                 if (oldMessages.length === 0) {
                     currentPage--;
                     hasMoreMessages = false;
-                    console.log('Старых сообщений нет, больше не грузим');
                     return;
                 }
                 
-                // Добавляем старые в начало массива (они уже отсортированы по времени)
+                // Добавляем старые в начало массива
                 messages = [...oldMessages, ...messages];
-                console.log('Всего сообщений в массиве:', messages.length);
                 
-                // Перерисовываем
+                // Сохраняем высоту ДО рендера
+                const oldHeight = container.scrollHeight;
+                
+                // Рендерим
                 renderMessages();
                 
-                // Восстанавливаем позицию скролла
-                const newScrollHeight = container.scrollHeight;
-                container.scrollTop = scrollTop + (newScrollHeight - scrollHeight);
-                console.log('Скролл восстановлен, новая высота:', newScrollHeight);
+                // Восстанавливаем позицию
+                setTimeout(() => {
+                    if (firstVisibleMsgId) {
+                        // Ищем элемент с сохранённым ID
+                        const element = document.querySelector(`[data-id="${firstVisibleMsgId}"]`);
+                        if (element) {
+                            // Скроллим к этому элементу
+                            element.scrollIntoView({ block: 'start' });
+                            return;
+                        }
+                    }
+                    
+                    // Если не нашли - восстанавливаем по высоте
+                    const newHeight = container.scrollHeight;
+                    container.scrollTop = scrollTop + (newHeight - oldHeight);
+                }, 10);
+            }
+
+            // Вспомогательная функция для поиска первого видимого сообщения
+            function getFirstVisibleMessage(container) {
+                const messages = container.querySelectorAll('.message');
+                const containerRect = container.getBoundingClientRect();
+                
+                for (let msg of messages) {
+                    const msgRect = msg.getBoundingClientRect();
+                    // Если сообщение видно в контейнере
+                    if (msgRect.top >= containerRect.top && msgRect.top < containerRect.bottom) {
+                        return msg;
+                    }
+                }
+                return messages[0] || null;
             }
             
             function clearChat() {
@@ -1952,16 +1969,13 @@ async def root():
                         
                         if (data.type === 'new_message') {
                             if (data.message.chat_id === currentChatId) {
-                                addMessageToChat(data.message);
-                                // Перерисовываем для дат
+                                messages.push(data.message);
                                 renderMessages();
                                 markChatAsRead(currentChatId);
                             } else {
-                                // Для других чатов - увеличиваем счётчик
                                 unreadChats[data.message.chat_id] = (unreadChats[data.message.chat_id] || 0) + 1;
                                 updateChatBadge(data.message.chat_id, unreadChats[data.message.chat_id]);
                             }
-                            
                             updateChatInList(data.message.chat_id, data.message);
                         }
                         else if (data.type === 'new_chat') {
@@ -2100,7 +2114,7 @@ async def root():
                                 msg.is_read = true;
                             }
                         });
-                        renderMessages();
+                        displayMessages(messages, true);
                     }
                     
                     // Обновляем галочку в списке для этого чата (ТОЛЬКО если последнее сообщение от собеседника)
@@ -2406,42 +2420,16 @@ async def root():
                     // ГРУЗИМ СООБЩЕНИЯ
                     const container = document.getElementById('messagesContainer');
                     container.innerHTML = '<div class="loading" style="text-align: center; padding: 20px;">Загрузка...</div>';
-                    
+
                     const msgs = await loadMessages(chatId, 0);
-                    container.innerHTML = '';
-                    
+                    messages = msgs;
+
                     if (msgs.length === 0) {
                         container.innerHTML = '<div class="empty-state">Нет сообщений</div>';
                     } else {
-                        msgs.forEach(msg => {
-                            // Проверяем, нужно ли добавить специальный класс для избранного
-                            if (chat.chat_type === 'saved' && 
-                                (msg.content.includes('ИЗБРАННОЕ') || msg.content.includes('⭐'))) {
-                                
-                                // Создаем сообщение вручную с классом
-                                const isSent = msg.sender_id === currentUser?.id;
-                                const msgDiv = document.createElement('div');
-                                msgDiv.className = `message ${isSent ? 'sent' : 'received'} saved-welcome`;
-                                msgDiv.setAttribute('data-id', msg.uuid);
-                                
-                                let content = (msg.content || '')
-                                    .replace(/&/g, '&amp;')
-                                    .replace(/</g, '&lt;')
-                                    .replace(/>/g, '&gt;')
-                                    .replace(/\\n/g, '<br>');
-                                
-                                const d = new Date(new Date(msg.timestamp).getTime() + 3*60*60*1000);
-                                const time = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
-                                
-                                msgDiv.innerHTML = `<div>${content}</div><div class="message-info">${time}</div>`;
-                                container.appendChild(msgDiv);
-                            } else {
-                                // Обычное сообщение через твою функцию
-                                addMessageToChat(msg);
-                            }
-                        });
+                        renderMessages();  // ОДИН ВЫЗОВ ВМЕСТО ВСЕГО
                     }
-                    
+
                     container.scrollTop = container.scrollHeight;
                     
                     // Активируем поле
@@ -2463,6 +2451,18 @@ async def root():
                 // Проверка на дубликат
                 if (document.querySelector(`[data-id="${message.uuid}"]`)) return;
                 
+                // Проверяем, есть ли вообще сообщения в чате
+                const hasMessages = container.querySelectorAll('.message').length > 0;
+
+                // Если это первое сообщение в чате - добавляем разделитель даты
+                if (!hasMessages) {
+                    const dateHeader = formatDateHeader(message.timestamp);
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'date-separator';
+                    dateDiv.innerHTML = `<span>${dateHeader}</span>`;
+                    container.appendChild(dateDiv);
+                }
+
                 const isSent = message.sender_id === currentUser?.id;
                 
                 // Добавляем в массив
@@ -2657,9 +2657,7 @@ async def root():
                         messages = messages.filter(m => m.uuid !== tempMessage.uuid);
                         
                         // Добавляем реальное
-                        addMessageToChat(realMessage);
-                        
-                        // ВАЖНО: перерисовываем для правильных дат
+                        messages.push(realMessage);
                         renderMessages();
                         
                         updateChatInList(currentChatId, realMessage);
