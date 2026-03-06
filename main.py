@@ -3577,7 +3577,7 @@ if (updatedUser.avatar) {
                 // Обновляем статус каждые 30 секунд
                 statusInterval = setInterval(() => {
                     if (currentChatId && userId) {
-                        updateChatHeaderStatus(userId);
+                        updateHeaderStatus(userId);
                     }
                 }, 1000);
             }
