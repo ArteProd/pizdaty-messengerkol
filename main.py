@@ -1969,18 +1969,13 @@ async def root():
                         }
                         else if (data.type === 'user_status') {
                             if (currentChatId && currentUser && data.user_id !== currentUser.id) {
-                                fetch(`/api/chats/${currentChatId}`, {
+                                // Обновляем статус в реальном времени
+                                fetch(`/api/users/${data.user_id}/status`, {
                                     headers: {'Authorization': `Bearer ${accessToken}`}
                                 })
                                 .then(r => r.json())
-                                .then(chat => {
-                                    const otherUser = chat.participants?.find(p => p.id !== currentUser.id);
-                                    if (otherUser && otherUser.id === data.user_id) {
-                                        const container = document.getElementById('chatStatus');
-                                        if (container) {
-                                            container.innerHTML = '<span class="user-status ' + (data.is_online ? 'status-online' : 'status-offline') + '"></span><span>' + (data.is_online ? 'В сети' : 'Был(а) недавно') + '</span>';
-                                        }
-                                    }
+                                .then(user => {
+                                    updateHeaderStatus(user);
                                 })
                                 .catch(() => {});
                             }
@@ -2096,6 +2091,21 @@ async def root():
                             setTimeout(() => badge.remove(), 300);
                         }
                     }
+                    // Обновляем галочки в текущем чате
+                    if (chatId === currentChatId) {
+                        messages.forEach(msg => {
+                            if (msg.sender_id !== currentUser?.id) {
+                                msg.is_read = true;
+                            }
+                        });
+                        renderMessages();
+                    }
+                    
+                    // Обновляем галочку в списке чатов для последнего сообщения
+                    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+                    if (lastMessage && lastMessage.sender_id === currentUser?.id) {
+                        updateChatItemCheckmark(chatId, {...lastMessage, is_read: true});
+                    }
                 } catch (e) {}
             }
             
@@ -2115,7 +2125,6 @@ async def root():
                     lastMsgEl.textContent = text;
                 }
                 
-                // Обновляем время и галочки
                 if (timeContainer && lastMessage) {
                     const msgDate = new Date(new Date(lastMessage.timestamp).getTime() + 3*60*60*1000);
                     const now = new Date();
@@ -2136,17 +2145,9 @@ async def root():
                         timeStr = msgDate.toLocaleDateString('ru-RU', {day:'numeric', month:'numeric'});
                     }
                     
-                    // ========== ГАЛОЧКИ ДЛЯ СПИСКА ЧАТОВ ==========
-                    let checkmarksHtml = '';
-                    if (lastMessage.sender_id === currentUser?.id) {
-                        const isRead = lastMessage.is_read;
-                        checkmarksHtml = isRead 
-                            ? '<span class="chat-item-checkmarks read">✓✓</span>' 
-                            : '<span class="chat-item-checkmarks">✓</span>';
-                    } else if (lastMessage.sender_id !== currentUser?.id) {
-                        // Если сообщение от другого - показываем две белые галочки (прочитано)
-                        checkmarksHtml = '<span class="chat-item-checkmarks read">✓✓</span>';
-                    }
+                    // Сохраняем текущие галочки если они были
+                    const currentCheckmarks = timeContainer.querySelector('.chat-item-checkmarks');
+                    const checkmarksHtml = currentCheckmarks ? currentCheckmarks.outerHTML : '';
                     
                     timeContainer.innerHTML = timeStr + checkmarksHtml;
                 }
@@ -3516,12 +3517,11 @@ if (updatedUser.avatar) {
             function handleMessageRead(data) {
                 // Если это текущий чат - обновляем галочки у сообщений
                 if (data.chat_id === currentChatId) {
-                    // Находим все свои непрочитанные сообщения и меняем галочки
                     messages.forEach((msg, index) => {
                         if (msg.sender_id === currentUser?.id && !msg.is_read) {
                             msg.is_read = true;
                             
-                            // Обновляем отображение
+                            // Обновляем конкретное сообщение в DOM
                             const msgEl = document.querySelector(`.message[data-id="${msg.uuid}"]`);
                             if (msgEl) {
                                 const infoEl = msgEl.querySelector('.message-info');
@@ -3530,12 +3530,54 @@ if (updatedUser.avatar) {
                                     infoEl.textContent = timeStr + ' ✓✓';
                                 }
                             }
+                            
+                            // Обновляем галочку в списке чатов
+                            updateChatItemCheckmark(data.chat_id, msg);
                         }
                     });
                 }
+            }
+
+            function updateChatItemCheckmark(chatId, message) {
+                const chatItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
+                if (!chatItem) return;
                 
-                // Обновляем галочки в списке чатов
-                updateChatInList(data.chat_id, null);
+                const timeContainer = chatItem.querySelector('.chat-item-time');
+                if (!timeContainer) return;
+                
+                // Обновляем только галочки, не трогая время
+                let checkmarksHtml = '';
+                if (message.sender_id === currentUser?.id) {
+                    const isRead = message.is_read;
+                    checkmarksHtml = isRead 
+                        ? '<span class="chat-item-checkmarks read">✓✓</span>' 
+                        : '<span class="chat-item-checkmarks">✓</span>';
+                }
+                
+                // Время уже есть, заменяем только галочки
+                const timeText = timeContainer.textContent.replace(/[✓✓✓]$/, '').trim();
+                timeContainer.innerHTML = timeText + checkmarksHtml;
+            }
+
+            function updateHeaderStatus(user) {
+                const container = document.getElementById('chatStatus');
+                if (!container) return;
+                
+                // Плавное исчезновение
+                container.style.transition = 'opacity 0.2s ease';
+                container.style.opacity = '0';
+                
+                setTimeout(() => {
+                    if (user.is_online) {
+                        container.innerHTML = '<span class="user-status status-online"></span><span>В сети</span>';
+                    } else if (user.last_seen) {
+                        const lastSeenText = formatLastSeen(user.last_seen);
+                        container.innerHTML = '<span class="user-status status-offline"></span><span>Был(а) ' + lastSeenText + '</span>';
+                    } else {
+                        container.innerHTML = '<span class="user-status status-offline"></span><span>Был(а) недавно</span>';
+                    }
+                    container.style.opacity = '1';
+                }, 200);
             }
 
         </script>
