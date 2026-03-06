@@ -2102,8 +2102,17 @@ async def root():
                         renderMessages();
                     }
                     
-                    // Обновляем галочку в списке для этого чата
-                    updateSpecificChatCheckmark(chatId);
+                    // Обновляем галочку в списке для этого чата (ТОЛЬКО если последнее сообщение от собеседника)
+                    if (chatId === currentChatId && messages.length > 0) {
+                        const lastMessage = messages[messages.length - 1];
+                        // Если последнее сообщение от собеседника - обновляем
+                        if (lastMessage.sender_id !== currentUser?.id) {
+                            updateSpecificChatCheckmark(chatId);
+                        }
+                    } else {
+                        // Для других чатов - обновляем
+                        updateSpecificChatCheckmark(chatId);
+                    }
                     
                 } catch (e) {}
             }
@@ -2115,23 +2124,26 @@ async def root():
                 const timeContainer = chatItem.querySelector('.chat-item-time');
                 if (!timeContainer) return;
                 
-                // Получаем время без галочек (удаляем все существующие галочки)
+                // Получаем время без галочек
                 let timeText = timeContainer.textContent || '';
                 timeText = timeText.replace(/[✓✓✓]/g, '').trim();
                 
-                // Если это текущий чат, можем взять последнее сообщение из messages
+                // Если это текущий чат, берём последнее сообщение из messages
                 if (chatId === currentChatId && messages.length > 0) {
                     const lastMessage = messages[messages.length - 1];
+                    // Галочки ТОЛЬКО для своих сообщений
                     if (lastMessage.sender_id === currentUser?.id) {
                         const checkmarksHtml = '<span class="chat-item-checkmarks read">✓✓</span>';
                         timeContainer.innerHTML = timeText + checkmarksHtml;
-                        return;
+                    } else {
+                        // Для чужих сообщений - только время
+                        timeContainer.innerHTML = timeText;
                     }
+                    return;
                 }
                 
-                // Для других чатов - просто обновим галочку на прочитанную
-                const checkmarksHtml = '<span class="chat-item-checkmarks read">✓✓</span>';
-                timeContainer.innerHTML = timeText + checkmarksHtml;
+                // Для других чатов - без изменений (оставляем как есть)
+                // Здесь мы не знаем, чьё последнее сообщение, поэтому ничего не делаем
             }
 
             function updateChatInList(chatId, lastMessage) {
@@ -3565,8 +3577,13 @@ if (updatedUser.avatar) {
                     });
                 }
                 
-                // Обновляем галочку в списке чатов для ЭТОГО КОНКРЕТНОГО ЧАТА
-                updateSpecificChatCheckmark(data.chat_id);
+                // Обновляем галочку в списке чатов ТОЛЬКО если последнее сообщение от текущего пользователя
+                if (data.chat_id === currentChatId && messages.length > 0) {
+                    const lastMessage = messages[messages.length - 1];
+                    if (lastMessage.sender_id === currentUser?.id) {
+                        updateSpecificChatCheckmark(data.chat_id);
+                    }
+                }
             }
 
             let statusInterval = null;
