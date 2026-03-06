@@ -2145,11 +2145,9 @@ async def root():
                         timeStr = msgDate.toLocaleDateString('ru-RU', {day:'numeric', month:'numeric'});
                     }
                     
-                    // Сохраняем текущие галочки если они были
-                    const currentCheckmarks = timeContainer.querySelector('.chat-item-checkmarks');
-                    const checkmarksHtml = currentCheckmarks ? currentCheckmarks.outerHTML : '';
-                    
-                    timeContainer.innerHTML = timeStr + checkmarksHtml;
+                    // Обновляем время, галочки будут добавлены отдельно
+                    timeContainer.innerHTML = timeStr;
+                    updateChatItemCheckmark(data.chat_id, msg);
                 }
                 
                 // Перемещаем чат наверх
