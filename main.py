@@ -2400,7 +2400,6 @@ async def root():
                     // Загружаем статус пользователя (для обычных чатов)
                     if (otherUser) {
                         await loadUserStatus(otherUser.id);
-                        startStatusInterval(otherUser.id);
                     }
                     
                     // ГРУЗИМ СООБЩЕНИЯ
@@ -3583,26 +3582,6 @@ if (updatedUser.avatar) {
                     if (lastMessage.sender_id === currentUser?.id) {
                         updateSpecificChatCheckmark(data.chat_id);
                     }
-                }
-            }
-
-            let statusInterval = null;
-
-            function startStatusInterval(userId) {
-                if (statusInterval) clearInterval(statusInterval);
-                
-                // Обновляем статус каждые 30 секунд
-                statusInterval = setInterval(() => {
-                    if (currentChatId && userId) {
-                        updateHeaderStatus(userId);
-                    }
-                }, 1000);
-            }
-
-            function stopStatusInterval() {
-                if (statusInterval) {
-                    clearInterval(statusInterval);
-                    statusInterval = null;
                 }
             }
 
