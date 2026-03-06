@@ -3586,7 +3586,7 @@ if (updatedUser.avatar) {
                 }
             }
 
-            /*let statusInterval = null;
+            let statusInterval = null;
 
             function startStatusInterval(userId) {
                 if (statusInterval) clearInterval(statusInterval);
@@ -3604,7 +3604,7 @@ if (updatedUser.avatar) {
                     clearInterval(statusInterval);
                     statusInterval = null;
                 }
-            }*/
+            }
 
             function updateHeaderStatus(user) {
                 const container = document.getElementById('chatStatus');
