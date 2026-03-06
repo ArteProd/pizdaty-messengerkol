@@ -2101,14 +2101,30 @@ async def root():
                         renderMessages();
                     }
                     
-                    // Обновляем галочку в списке чатов для последнего сообщения
-                    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-                    if (lastMessage && lastMessage.sender_id === currentUser?.id) {
-                        updateChatItemCheckmark(chatId, {...lastMessage, is_read: true});
-                    }
+                    // Обновляем галочку в списке для этого чата
+                    // Для всех сообщений от текущего пользователя в этом чате теперь is_read = true
+                    updateChatItemCheckmark(chatId, true);
                 } catch (e) {}
             }
             
+            function updateChatItemCheckmark(chatId, isRead) {
+                const chatItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
+                if (!chatItem) return;
+                
+                const timeContainer = chatItem.querySelector('.chat-item-time');
+                if (!timeContainer) return;
+                
+                // Получаем текущее время без галочек
+                const timeText = timeContainer.textContent.replace(/[✓✓✓]$/, '').trim();
+                
+                // Добавляем правильные галочки
+                const checkmarksHtml = isRead 
+                    ? '<span class="chat-item-checkmarks read">✓✓</span>' 
+                    : '<span class="chat-item-checkmarks">✓</span>';
+                
+                timeContainer.innerHTML = timeText + checkmarksHtml;
+            }
+
             // Обновить только конкретный чат в списке (для предпросмотра последнего сообщения)
             function updateChatInList(chatId, lastMessage) {
                 const chatItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
@@ -2145,9 +2161,16 @@ async def root():
                         timeStr = msgDate.toLocaleDateString('ru-RU', {day:'numeric', month:'numeric'});
                     }
                     
-                    // Обновляем время, галочки будут добавлены отдельно
-                    timeContainer.innerHTML = timeStr;
-                    updateChatItemCheckmark(data.chat_id, msg);
+                    // Добавляем галочки если это моё сообщение
+                    let checkmarksHtml = '';
+                    if (lastMessage.sender_id === currentUser?.id) {
+                        const isRead = lastMessage.is_read;
+                        checkmarksHtml = isRead 
+                            ? '<span class="chat-item-checkmarks read">✓✓</span>' 
+                            : '<span class="chat-item-checkmarks">✓</span>';
+                    }
+                    
+                    timeContainer.innerHTML = timeStr + checkmarksHtml;
                 }
                 
                 // Перемещаем чат наверх
@@ -3529,33 +3552,13 @@ if (updatedUser.avatar) {
                                     infoEl.textContent = timeStr + ' ✓✓';
                                 }
                             }
-                            
-                            // Обновляем галочку в списке чатов
-                            updateChatItemCheckmark(data.chat_id, msg);
                         }
                     });
                 }
-            }
-
-            function updateChatItemCheckmark(chatId, message) {
-                const chatItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
-                if (!chatItem) return;
                 
-                const timeContainer = chatItem.querySelector('.chat-item-time');
-                if (!timeContainer) return;
-                
-                // Обновляем только галочки, не трогая время
-                let checkmarksHtml = '';
-                if (message.sender_id === currentUser?.id) {
-                    const isRead = message.is_read;
-                    checkmarksHtml = isRead 
-                        ? '<span class="chat-item-checkmarks read">✓✓</span>' 
-                        : '<span class="chat-item-checkmarks">✓</span>';
-                }
-                
-                // Время уже есть, заменяем только галочки
-                const timeText = timeContainer.textContent.replace(/[✓✓✓]$/, '').trim();
-                timeContainer.innerHTML = timeText + checkmarksHtml;
+                // Обновляем галочку в списке чатов для этого чата
+                // Для всех сообщений от текущего пользователя в этом чате теперь is_read = true
+                updateChatItemCheckmark(data.chat_id, true);
             }
 
             let statusInterval = null;
