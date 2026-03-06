@@ -2478,7 +2478,7 @@ async def root():
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
-                    .replace(/\n/g, '<br>');
+                    .replace(/\\n/g, '<br>');
                 
                 let time = '';
                 if (message.status === 'sending') time = '⏳';
